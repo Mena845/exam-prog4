@@ -48,18 +48,6 @@ public class ImageSubmissionService {
           HttpStatus.INTERNAL_SERVER_ERROR, "Échec de la lecture de l'image", e);
     }
 
-    var s3Future =
-        java.util.concurrent.CompletableFuture.runAsync(
-            () -> {
-              try {
-                bucketComponent.upload(tempFile, originalKey);
-                log.info(
-                    "Image uploaded to S3: key={}, size={}bytes", originalKey, image.getSize());
-              } finally {
-                tempFile.delete();
-              }
-            });
-
     jdbcTemplate.update(
         "INSERT INTO image_submission "
             + "(id, original_filename, email, created_at, original_s3_key, status) "
@@ -71,14 +59,24 @@ public class ImageSubmissionService {
         originalKey,
         "PENDING");
 
-    s3Future.join();
-
     var event = ImageBwConversionRequested.builder().imageId(id).originalS3Key(originalKey).build();
     try {
       eventProducer.accept(List.of(event));
     } catch (Exception e) {
       log.error("Failed to emit EventBridge event for image {}", id, e);
     }
+
+    java.util.concurrent.CompletableFuture.runAsync(
+        () -> {
+          try {
+            bucketComponent.upload(tempFile, originalKey);
+            log.info("Image uploaded to S3: key={}, size={}bytes", originalKey, image.getSize());
+          } catch (Exception e) {
+            log.error("Failed to upload image to S3: key={}", originalKey, e);
+          } finally {
+            tempFile.delete();
+          }
+        });
 
     return ImageSubmissionResponse.builder()
         .id(id)
