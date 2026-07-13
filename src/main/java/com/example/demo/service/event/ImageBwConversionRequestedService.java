@@ -6,6 +6,7 @@ import com.example.demo.endpoint.event.model.ImageBwConversionRequested;
 import com.example.demo.file.bucket.BucketComponent;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.util.List;
 import java.util.function.Consumer;
 import javax.imageio.ImageIO;
 import lombok.AllArgsConstructor;
@@ -21,6 +22,7 @@ public class ImageBwConversionRequestedService implements Consumer<ImageBwConver
 
   private final BucketComponent bucketComponent;
   private final JdbcTemplate jdbcTemplate;
+  private final com.example.demo.mail.Mailer mailer;
 
   @SneakyThrows
   @Override
@@ -44,6 +46,28 @@ public class ImageBwConversionRequestedService implements Consumer<ImageBwConver
           bwKey,
           event.getImageId());
       log.info("BW conversion completed for imageId={}", event.getImageId());
+
+      var rows =
+          jdbcTemplate.queryForList(
+              "SELECT email FROM image_submission WHERE id = ?", event.getImageId());
+      if (!rows.isEmpty()) {
+        var userEmail = (String) rows.get(0).get("email");
+        var presignedUrl = bucketComponent.presign(bwKey, java.time.Duration.ofHours(1));
+        mailer.accept(
+            new com.example.demo.mail.Email(
+                new jakarta.mail.internet.InternetAddress(userEmail),
+                List.of(),
+                List.of(),
+                "Votre image convertie en noir et blanc est prête",
+                "<p>Bonjour,</p>"
+                    + "<p>Votre image a été convertie en noir et blanc.</p>"
+                    + "<p><a href=\""
+                    + presignedUrl
+                    + "\">Télécharger l'image BW</a></p>"
+                    + "<p>Ce lien expire dans 1 heure.</p>",
+                List.of()));
+        log.info("Email sent to {} for imageId={}", userEmail, event.getImageId());
+      }
     } finally {
       original.delete();
       bwFile.delete();
