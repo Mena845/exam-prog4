@@ -1,6 +1,11 @@
 package com.example.demo.service;
 
+import com.example.demo.endpoint.event.EventProducer;
+import com.example.demo.endpoint.event.model.ImageBwConversionRequested;
 import com.example.demo.endpoint.rest.dto.ImageSubmissionResponse;
+import com.example.demo.file.bucket.BucketComponent;
+import java.io.File;
+import java.io.IOException;
 import java.sql.Timestamp;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -8,24 +13,26 @@ import java.util.Set;
 import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 @Service
 @AllArgsConstructor
+@Slf4j
 public class ImageSubmissionService {
 
   private static final Set<String> ALLOWED_CONTENT_TYPES = Set.of("image/jpeg", "image/png");
   private static final long MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 
   private final JdbcTemplate jdbcTemplate;
+  private final BucketComponent bucketComponent;
+  private final EventProducer<ImageBwConversionRequested> eventProducer;
 
   @SneakyThrows
-  @Transactional
   public ImageSubmissionResponse submit(String email, MultipartFile image) {
     validate(image);
 
@@ -34,8 +41,17 @@ public class ImageSubmissionService {
     var extension = "image/png".equals(image.getContentType()) ? ".png" : ".jpg";
     var originalKey = "originals/" + id + extension;
 
-    // TODO: upload du fichier vers S3 ici (BucketComponent), une fois que la
-    // partie stockage/fichier sera branchée. Pour l'instant on garde juste la clé.
+    File tempFile = File.createTempFile("upload-" + id, extension);
+    try {
+      image.transferTo(tempFile);
+      bucketComponent.upload(tempFile, originalKey);
+      log.info("Image uploaded to S3: key={}, size={}bytes", originalKey, image.getSize());
+    } catch (IOException e) {
+      throw new ResponseStatusException(
+          HttpStatus.INTERNAL_SERVER_ERROR, "Échec de l'upload de l'image", e);
+    } finally {
+      tempFile.delete();
+    }
 
     jdbcTemplate.update(
         "INSERT INTO image_submission "
@@ -47,6 +63,9 @@ public class ImageSubmissionService {
         Timestamp.from(now.toInstant()),
         originalKey,
         "PENDING");
+
+    var event = ImageBwConversionRequested.builder().imageId(id).originalS3Key(originalKey).build();
+    eventProducer.accept(List.of(event));
 
     return ImageSubmissionResponse.builder()
         .id(id)
