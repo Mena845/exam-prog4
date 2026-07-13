@@ -1,4 +1,4 @@
-package com.my.company.endpoint.rest.dto;
+package com.example.demo.endpoint.rest.dto;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
