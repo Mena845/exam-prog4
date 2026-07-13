@@ -64,8 +64,7 @@ public class ImageSubmissionService {
         originalKey,
         "PENDING");
 
-    var event =
-        ImageBwConversionRequested.builder().imageId(id).originalS3Key(originalKey).build();
+    var event = ImageBwConversionRequested.builder().imageId(id).originalS3Key(originalKey).build();
     eventProducer.accept(List.of(event));
 
     return ImageSubmissionResponse.builder()
