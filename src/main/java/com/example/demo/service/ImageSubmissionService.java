@@ -3,7 +3,6 @@ package com.example.demo.service;
 import com.example.demo.endpoint.event.EventProducer;
 import com.example.demo.endpoint.event.model.ImageBwConversionRequested;
 import com.example.demo.endpoint.rest.dto.ImageSubmissionResponse;
-
 import com.example.demo.file.bucket.BucketComponent;
 import java.io.File;
 import java.io.IOException;
