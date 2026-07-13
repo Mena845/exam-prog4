@@ -3,6 +3,7 @@ package com.example.demo.service;
 import com.example.demo.endpoint.event.EventProducer;
 import com.example.demo.endpoint.event.model.ImageBwConversionRequested;
 import com.example.demo.endpoint.rest.dto.ImageSubmissionResponse;
+
 import com.example.demo.file.bucket.BucketComponent;
 import java.io.File;
 import java.io.IOException;
@@ -30,7 +31,7 @@ public class ImageSubmissionService {
 
   private final JdbcTemplate jdbcTemplate;
   private final BucketComponent bucketComponent;
-  private final EventProducer<ImageBwConversionRequested> eventProducer;
+  private final EventProducer eventProducer;
 
   @SneakyThrows
   public ImageSubmissionResponse submit(String email, MultipartFile image) {
