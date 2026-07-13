@@ -1,7 +1,6 @@
 package com.example.demo.service;
 
 import com.example.demo.endpoint.rest.dto.ImageSubmissionResponse;
-import java.io.File;
 import java.sql.Timestamp;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -39,39 +38,40 @@ public class ImageSubmissionService {
     // partie stockage/fichier sera branchée. Pour l'instant on garde juste la clé.
 
     jdbcTemplate.update(
-            "INSERT INTO image_submission "
-                    + "(id, original_filename, email, created_at, original_s3_key, status) "
-                    + "VALUES (?, ?, ?, ?, ?, ?)",
-            id,
-            image.getOriginalFilename(),
-            email,
-            Timestamp.from(now.toInstant()),
-            originalKey,
-            "PENDING");
+        "INSERT INTO image_submission "
+            + "(id, original_filename, email, created_at, original_s3_key, status) "
+            + "VALUES (?, ?, ?, ?, ?, ?)",
+        id,
+        image.getOriginalFilename(),
+        email,
+        Timestamp.from(now.toInstant()),
+        originalKey,
+        "PENDING");
 
     return ImageSubmissionResponse.builder()
-            .id(id)
-            .filename(image.getOriginalFilename())
-            .email(email)
-            .createdAt(now)
-            .status("PENDING")
-            .bwImageUrl(null)
-            .build();
+        .id(id)
+        .filename(image.getOriginalFilename())
+        .email(email)
+        .createdAt(now)
+        .status("PENDING")
+        .bwImageUrl(null)
+        .build();
   }
 
   public List<ImageSubmissionResponse> findAll() {
     return jdbcTemplate.query(
-            "SELECT id, original_filename, email, created_at, status, bw_s3_key "
-                    + "FROM image_submission ORDER BY created_at DESC",
-            (rs, rowNum) ->
-                    ImageSubmissionResponse.builder()
-                            .id(UUID.fromString(rs.getString("id")))
-                            .filename(rs.getString("original_filename"))
-                            .email(rs.getString("email"))
-                            .createdAt(rs.getTimestamp("created_at").toInstant().atOffset(java.time.ZoneOffset.UTC))
-                            .status(rs.getString("status"))
-                            .bwImageUrl(rs.getString("bw_s3_key"))
-                            .build());
+        "SELECT id, original_filename, email, created_at, status, bw_s3_key "
+            + "FROM image_submission ORDER BY created_at DESC",
+        (rs, rowNum) ->
+            ImageSubmissionResponse.builder()
+                .id(UUID.fromString(rs.getString("id")))
+                .filename(rs.getString("original_filename"))
+                .email(rs.getString("email"))
+                .createdAt(
+                    rs.getTimestamp("created_at").toInstant().atOffset(java.time.ZoneOffset.UTC))
+                .status(rs.getString("status"))
+                .bwImageUrl(rs.getString("bw_s3_key"))
+                .build());
   }
 
   private void validate(MultipartFile image) {
@@ -80,10 +80,11 @@ public class ImageSubmissionService {
     }
     if (!ALLOWED_CONTENT_TYPES.contains(image.getContentType())) {
       throw new ResponseStatusException(
-              HttpStatus.BAD_REQUEST, "Seuls les formats JPEG et PNG sont acceptés");
+          HttpStatus.BAD_REQUEST, "Seuls les formats JPEG et PNG sont acceptés");
     }
     if (image.getSize() > MAX_FILE_SIZE_BYTES) {
-      throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "Fichier trop volumineux (max 5 Mo)");
+      throw new ResponseStatusException(
+          HttpStatus.PAYLOAD_TOO_LARGE, "Fichier trop volumineux (max 5 Mo)");
     }
   }
 }
