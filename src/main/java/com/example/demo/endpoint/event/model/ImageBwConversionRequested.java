@@ -16,16 +16,16 @@ import lombok.ToString;
 @EqualsAndHashCode(callSuper = false)
 @ToString
 public class ImageBwConversionRequested extends PojaEvent {
-    private UUID imageId;
-    private String originalS3Key;
+  private UUID imageId;
+  private String originalS3Key;
 
-    @Override
-    public Duration maxConsumerDuration() {
-        return Duration.ofSeconds(30);
-    }
+  @Override
+  public Duration maxConsumerDuration() {
+    return Duration.ofSeconds(30);
+  }
 
-    @Override
-    public Duration maxConsumerBackoffBetweenRetries() {
-        return Duration.ofSeconds(15);
-    }
+  @Override
+  public Duration maxConsumerBackoffBetweenRetries() {
+    return Duration.ofSeconds(15);
+  }
 }
