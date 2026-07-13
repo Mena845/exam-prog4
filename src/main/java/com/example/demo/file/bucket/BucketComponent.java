@@ -29,10 +29,7 @@ public class BucketComponent {
   public FileHash upload(File file, String bucketKey) {
     var s3Client = bucketConf.getS3Client();
     s3Client.putObject(
-        PutObjectRequest.builder()
-            .bucket(bucketConf.getBucketName())
-            .key(bucketKey)
-            .build(),
+        PutObjectRequest.builder().bucket(bucketConf.getBucketName()).key(bucketKey).build(),
         RequestBody.fromFile(file));
     return new FileHash(FileHashAlgorithm.NONE, null);
   }
@@ -42,10 +39,7 @@ public class BucketComponent {
     var destination =
         createTempFile(prefixFromBucketKey(bucketKey), suffixFromBucketKey(bucketKey));
     GetObjectRequest request =
-        GetObjectRequest.builder()
-            .bucket(bucketConf.getBucketName())
-            .key(bucketKey)
-            .build();
+        GetObjectRequest.builder().bucket(bucketConf.getBucketName()).key(bucketKey).build();
     try (var in = bucketConf.getS3Client().getObject(request)) {
       Files.write(destination.toPath(), in.readAllBytes());
     }
