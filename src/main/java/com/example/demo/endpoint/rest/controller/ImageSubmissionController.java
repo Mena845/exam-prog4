@@ -18,17 +18,17 @@ import org.springframework.web.multipart.MultipartFile;
 @Validated
 public class ImageSubmissionController {
 
-    private final ImageSubmissionService service;
+  private final ImageSubmissionService service;
 
-    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @ResponseStatus(HttpStatus.CREATED)
-    public ImageSubmissionResponse submit(
-            @RequestParam @NotBlank @Email String email, @RequestParam MultipartFile image) {
-        return service.submit(email, image);
-    }
+  @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  @ResponseStatus(HttpStatus.CREATED)
+  public ImageSubmissionResponse submit(
+      @RequestParam @NotBlank @Email String email, @RequestParam MultipartFile image) {
+    return service.submit(email, image);
+  }
 
-    @GetMapping
-    public List<ImageSubmissionResponse> findAll() {
-        return service.findAll();
-    }
+  @GetMapping
+  public List<ImageSubmissionResponse> findAll() {
+    return service.findAll();
+  }
 }
