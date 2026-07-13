@@ -12,7 +12,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import lombok.AllArgsConstructor;
-import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -32,7 +31,6 @@ public class ImageSubmissionService {
   private final BucketComponent bucketComponent;
   private final EventProducer eventProducer;
 
-  @SneakyThrows
   public ImageSubmissionResponse submit(String email, MultipartFile image) {
     validate(image);
 
@@ -41,17 +39,26 @@ public class ImageSubmissionService {
     var extension = "image/png".equals(image.getContentType()) ? ".png" : ".jpg";
     var originalKey = "originals/" + id + extension;
 
-    File tempFile = File.createTempFile("upload-" + id, extension);
+    File tempFile;
     try {
+      tempFile = File.createTempFile("upload-" + id, extension);
       image.transferTo(tempFile);
-      bucketComponent.upload(tempFile, originalKey);
-      log.info("Image uploaded to S3: key={}, size={}bytes", originalKey, image.getSize());
     } catch (IOException e) {
       throw new ResponseStatusException(
-          HttpStatus.INTERNAL_SERVER_ERROR, "Échec de l'upload de l'image", e);
-    } finally {
-      tempFile.delete();
+          HttpStatus.INTERNAL_SERVER_ERROR, "Échec de la lecture de l'image", e);
     }
+
+    var s3Future =
+        java.util.concurrent.CompletableFuture.runAsync(
+            () -> {
+              try {
+                bucketComponent.upload(tempFile, originalKey);
+                log.info(
+                    "Image uploaded to S3: key={}, size={}bytes", originalKey, image.getSize());
+              } finally {
+                tempFile.delete();
+              }
+            });
 
     jdbcTemplate.update(
         "INSERT INTO image_submission "
@@ -64,8 +71,14 @@ public class ImageSubmissionService {
         originalKey,
         "PENDING");
 
+    s3Future.join();
+
     var event = ImageBwConversionRequested.builder().imageId(id).originalS3Key(originalKey).build();
-    eventProducer.accept(List.of(event));
+    try {
+      eventProducer.accept(List.of(event));
+    } catch (Exception e) {
+      log.error("Failed to emit EventBridge event for image {}", id, e);
+    }
 
     return ImageSubmissionResponse.builder()
         .id(id)
