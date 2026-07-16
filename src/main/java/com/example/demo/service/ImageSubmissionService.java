@@ -4,9 +4,6 @@ import com.example.demo.endpoint.event.EventProducer;
 import com.example.demo.endpoint.event.model.ImageBwConversionRequested;
 import com.example.demo.endpoint.rest.dto.ImageSubmissionResponse;
 import com.example.demo.file.bucket.BucketComponent;
-import com.example.demo.mail.Email;
-import com.example.demo.mail.Mailer;
-import jakarta.mail.internet.InternetAddress;
 import java.io.File;
 import java.io.IOException;
 import java.sql.Timestamp;
@@ -33,7 +30,6 @@ public class ImageSubmissionService {
   private final JdbcTemplate jdbcTemplate;
   private final BucketComponent bucketComponent;
   private final EventProducer<ImageBwConversionRequested> eventProducer;
-  private final Mailer mailer;
 
   public ImageSubmissionResponse submit(String email, MultipartFile image) {
     validate(image);
@@ -69,30 +65,9 @@ public class ImageSubmissionService {
         originalKey,
         "PENDING");
 
-    var event = ImageBwConversionRequested.builder().imageId(id).originalS3Key(originalKey).build();
-    try {
-      eventProducer.accept(List.of(event));
-    } catch (Exception e) {
-      log.error("Failed to emit EventBridge event for image {}", id, e);
-    }
-
-    try {
-      mailer.accept(
-          new Email(
-              new InternetAddress(email),
-              List.of(),
-              List.of(),
-              "Votre image a été reçue",
-              "<p>Bonjour,</p>"
-                  + "<p>Votre image a été soumise avec succès et est en cours de conversion "
-                  + "noir et blanc.</p>"
-                  + "<p>Vous recevrez un autre email avec le lien de téléchargement une fois la "
-                  + "conversion terminée.</p>",
-              List.of()));
-      log.info("Confirmation email sent to {} for imageId={}", email, id);
-    } catch (Exception e) {
-      log.error("Failed to send confirmation email for image {}", id, e);
-    }
+    eventProducer.accept(
+        List.of(
+            ImageBwConversionRequested.builder().imageId(id).originalS3Key(originalKey).build()));
 
     return ImageSubmissionResponse.builder()
         .id(id)
