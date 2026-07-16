@@ -32,7 +32,7 @@ public class ImageSubmissionService {
 
   private final JdbcTemplate jdbcTemplate;
   private final BucketComponent bucketComponent;
-  private final EventProducer eventProducer;
+  private final EventProducer<ImageBwConversionRequested> eventProducer;
   private final Mailer mailer;
 
   public ImageSubmissionResponse submit(String email, MultipartFile image) {
@@ -43,13 +43,19 @@ public class ImageSubmissionService {
     var extension = "image/png".equals(image.getContentType()) ? ".png" : ".jpg";
     var originalKey = "originals/" + id + extension;
 
-    File tempFile;
+    File tempFile = null;
     try {
       tempFile = File.createTempFile("upload-" + id, extension);
       image.transferTo(tempFile);
+      bucketComponent.upload(tempFile, originalKey);
+      log.info("Image uploaded to S3: key={}, size={}bytes", originalKey, image.getSize());
     } catch (IOException e) {
       throw new ResponseStatusException(
-          HttpStatus.INTERNAL_SERVER_ERROR, "Échec de la lecture de l'image", e);
+          HttpStatus.INTERNAL_SERVER_ERROR, "Échec de l'upload de l'image", e);
+    } finally {
+      if (tempFile != null) {
+        tempFile.delete();
+      }
     }
 
     jdbcTemplate.update(
@@ -87,18 +93,6 @@ public class ImageSubmissionService {
     } catch (Exception e) {
       log.error("Failed to send confirmation email for image {}", id, e);
     }
-
-    java.util.concurrent.CompletableFuture.runAsync(
-        () -> {
-          try {
-            bucketComponent.upload(tempFile, originalKey);
-            log.info("Image uploaded to S3: key={}, size={}bytes", originalKey, image.getSize());
-          } catch (Exception e) {
-            log.error("Failed to upload image to S3: key={}", originalKey, e);
-          } finally {
-            tempFile.delete();
-          }
-        });
 
     return ImageSubmissionResponse.builder()
         .id(id)
